@@ -1,9 +1,14 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from server.routers import todoist
 
 #initialize
 app = FastAPI(title="Life Sync", version="1.0")
+
+#routers
+app.include_router(todoist.router)
+
 
 @app.get("/")
 def read_root():
