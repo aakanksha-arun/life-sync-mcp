@@ -16,15 +16,9 @@ if not api_key:
 else:
     todoist = TodoistAPI(api_key)
 
-class TaskInput(BaseModel):
-    """Defines the structure for adding a new task."""
-    content: str
-    due_date: str | None = None
-    #TODO: can add other fields here later, like priority
-
-#Get All Tasks
+#Get All Active Tasks
 @router.get("/todoist/tasks")
-def get_todoist_tasks():
+def get_all_tasks():
     """
     Get all active tasks from Todoist
     """
@@ -48,3 +42,27 @@ def get_todoist_tasks():
         return clean_tasks
     except Exception as e:
         return f"An error occured while getting all tasks: {e}"
+
+#TaskModel
+class TaskInput(BaseModel):
+    """Defines the structure for adding a new task."""
+    content: str
+    due_date: str | None = None
+    #TODO: can add other fields here later, like priority
+
+#Add a new task
+@router.post("/todoist/tasks")
+def add_new_task(task_input: TaskInput):
+    if not todoist:
+        raise HTTPException(status_code=500, detail="Todoist API key not configured in .env file.")
+    #create task structure
+    try:
+        task = todoist.add_task(
+            content=task_input.content,
+            due_string=task_input.due_date,
+        )
+        return {"status": "success", "task_id": task.id, "content": task.content}
+    except Exception as e:
+        return f"An error occured while creating a new task: {e}"
+    
+
