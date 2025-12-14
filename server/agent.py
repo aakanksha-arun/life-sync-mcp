@@ -1,6 +1,7 @@
 from datetime import date
 import json
 import os
+from typing import Any, Dict
 import requests
 from dotenv import load_dotenv
 
@@ -122,36 +123,47 @@ llm = ChatGoogleGenerativeAI(
     temperature=0
 ).bind_tools(tools)
 
-#main loop
-def run_chat():
-    print("Life Sync Agent is ready! (Type 'quit' to exit)")
-    while True:
-        user_input = input("\n You: ")
-        if user_input.lower() in ["quit", "exit"]:
-            break
-        try:
+#HELPER FUNCTION
+def _extract_text_from_message(message_content) -> str:
+    """Safely extracts a readable string from the model's message content."""
+    if isinstance(message_content, list):
+        # Handle the structured list of content blocks
+        text_parts = [block['text'] for block in message_content if isinstance(block, dict) and 'text' in block]
+        return ' '.join(text_parts)
+    # Handle the simple string response
+    return str(message_content)
+
+def invoke_agent_with_tools(user_input: str) -> Dict[str, Any]:
+    """
+    Runs the LLM with the user input, handles tool calls, and returns a structured result for the frontend.
+    """
+    result = {
+        "final_response": None,
+        "tool_called": None,
+        "tool_call_result": None
+    }
+    try:
             msg = llm.invoke([HumanMessage(content=user_input)])
             if msg.tool_calls:
-                for tool_call in msg.tool_calls:
-                    tool_name = tool_call['name']
-                    tool_args = tool_call['args']
-                print(f" AI calling: {tool_name} with args: {tool_args}")
-
-                #lookup tool in tools_map
+                tool_call = msg.tool_calls[0]
+                tool_name = tool_call['name']
+                tool_args = tool_call['args']
+                result["tool_called"] = tool_name
+            
                 if tool_name in tools_map:
-                    tool_result = tools_map[tool_name].invoke(tool_args)
-                    print(f"Result from Server: {tool_result}")
+                        tool_result = tools_map[tool_name].invoke(tool_args)
+                        result["tool_call_result"] = tool_result
+                        tool_summary = json.dumps(tool_result) if isinstance(tool_result, dict) else str(tool_result)
+                        tool_message_to_llm = f"The user asked: '{user_input}'. The server ran the tool '{tool_name}' and got the following result: {tool_summary}. Now, please give a concise, helpful summary to the user."
+                        final_msg = llm.invoke([
+                        HumanMessage(content=tool_message_to_llm) 
+                        ])
+                        result["final_response"] = _extract_text_from_message(final_msg.content)
                 else:
                     print(f"Error: Tool {tool_name} not found in tools_map!")
             else:
-                content = msg.content
-                if isinstance(content, list):
-                    text_parts = [block['text'] for block in content if 'text' in block]
-                    print(f"Life Sync says: {' '.join(text_parts)}")
-                else:
-                    print(f"Life Sync says: {content}")
-        except Exception as e:
+            # No tool call, just a direct response
+                result["final_response"] = _extract_text_from_message(msg.content)
+    except Exception as e:
             print(f"Error: {e}")
-
-if __name__ == "__main__":
-    run_chat()
+    return result
