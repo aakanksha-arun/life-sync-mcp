@@ -1,7 +1,6 @@
 import uvicorn
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-from server.routers import todoist, water_logger
+from routers import todoist, water_logger
 
 #initialize
 app = FastAPI(title="Life Sync", version="1.0")
