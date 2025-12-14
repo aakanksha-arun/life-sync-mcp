@@ -1,3 +1,5 @@
+from datetime import date
+import json
 import os
 import requests
 from dotenv import load_dotenv
@@ -22,16 +24,95 @@ def check_status():
     Checks the user's current status.
     """
     try:
-        status_url = f"{SERVER_URL}/status"
-        print(f"  Connecting to: {status_url}")
-
-        response = requests.get(status_url)
+        url = f"{SERVER_URL}/status"
+        print(f"  Connecting to: {url}")
+        response = requests.get(url)
         return response.json()
     except Exception as e:
         return f"Error connecting to server: {e}"
 
+# --- TODOIST TOOLS ---
+@tool
+def todoist_get_all_active_tasks() -> dict:
+    """
+    Retrieves all active, uncompleted tasks from the user's Todoist account.
+    Use this to see what the user needs to work on next.
+    """
+    url = f"{SERVER_URL}/todoist/tasks"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return f"Failed to get Todoist tasks: {e}"
+
+@tool
+def todoist_add_new_task(content: str, due_date: str = None) -> dict:
+    """
+    Adds a new task to the user's Todoist inbox.
+    
+    Args:
+        content: The text content of the task (e.g., 'Buy milk'). REQUIRED.
+        due_date: Optional. The due date for the task (e.g., 'YYYY-MM-DD').
+    """
+    url = f"{SERVER_URL}/todoist/tasks"
+    headers = {"Content-Type": "application/json"}
+    payload = {"content": content}
+    if due_date:
+        payload["due_date"] = due_date
+    
+    try:
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return f"Failed to create Todoist task: {e}"
+    
+# --- WATER TRACKING TOOLS (ON NOTION) ---
+@tool
+def log_water_intake(amount_oz: float) -> dict:
+    """
+    Logs a new water intake entry in fluid ounces (oz) to the user's Notion tracker.
+    Use this when the user says they drank water, a glass, or a specific volume.
+    
+    Args:
+        amount_oz: The amount of water consumed in fluid ounces (oz). REQUIRED.
+    """
+    url = f"{SERVER_URL}/notion/water"
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "amount_oz": amount_oz,
+        "log_date": str(date.today()) # Pass today's date as a string
+    }
+    try:
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return f"Failed to log water: {e}"
+    
+@tool
+def get_today_hydration_status() -> dict:
+    """
+    Retrieves the total water consumed today and the daily goal status from Notion.
+    Use this when the user asks about their water intake, hydration, or goal progress.
+    """
+    url = f"{SERVER_URL}/notion/water"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return f"Failed to get hydration status: {e}"
+
 #tools list
-tools = [check_status]
+tools = [
+    check_status,
+    get_today_hydration_status,
+    log_water_intake,
+    todoist_add_new_task,
+    todoist_get_all_active_tasks
+    ]
 tools_map = {t.name: t for t in tools}
 
 
