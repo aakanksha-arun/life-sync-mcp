@@ -1,6 +1,6 @@
 import uvicorn
 from fastapi import FastAPI
-from routers import todoist, water_logger
+from routers import todoist, water_logger, agent
 
 #initialize
 app = FastAPI(title="Life Sync", version="1.0")
@@ -8,6 +8,7 @@ app = FastAPI(title="Life Sync", version="1.0")
 #routers
 app.include_router(todoist.router)
 app.include_router(water_logger.router)
+app.include_router(agent.router)
 
 
 @app.get("/")
